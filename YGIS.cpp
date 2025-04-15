@@ -30,7 +30,7 @@ YGIS::YGIS(QWidget* parent) : QMainWindow(parent) {
     // 设置最小尺寸
     setMinimumSize(800, 600);
 
-    // 初始化GDAL/OGR库
+    // 初始化GDAL/OGR库 
     GDALAllRegister();
     OGRRegisterAll();
 
