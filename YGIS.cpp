@@ -39,8 +39,6 @@ YGIS::YGIS(QWidget* parent) : QMainWindow(parent) {
     connect(openFile, &QAction::triggered, fileWidget, &FileWidget::appendFile);  //打开并添加文件
     connect(fileWidget, &FileWidget::filePathDelivered, textWidget, &TextWidget::dataPathReceived);  //传输路径给编辑框
     connect(fileWidget, &FileWidget::fileListUpdated, mapWidget, &MapWidget::updateFilePathList); //同步文件列表与mapCanvas文件列表
-
-
 }
 
 YGIS::~YGIS()

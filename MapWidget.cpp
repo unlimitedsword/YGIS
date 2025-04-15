@@ -171,14 +171,14 @@ QImage MapWidget::loadRaster(const QString& filePath)
 }
 
 
-QGraphicsItem* MapWidget::createGraphicsItem(OGRGeometry* geom, const OGREnvelope& env) {
+QGraphicsItem* MapWidget::createGraphicsItem(OGRGeometry* geom, const OGREnvelope& env,QColor color) {
     QPainterPath path;
     switch (wkbFlatten(geom->getGeometryType())) {
     case wkbPoint: {
         OGRPoint* p = static_cast<OGRPoint*>(geom);
         QPointF pt = mapToView(p->getX(), p->getY(), env);
         auto* item = new QGraphicsEllipseItem(pt.x() - 2, pt.y() - 2, 4, 4);
-        item->setBrush(Qt::red);
+        item->setBrush(color);
         return item;
     }
     case wkbLineString: {
@@ -188,7 +188,7 @@ QGraphicsItem* MapWidget::createGraphicsItem(OGRGeometry* geom, const OGREnvelop
             (i == 0) ? path.moveTo(pt) : path.lineTo(pt);
         }
         auto* item = new QGraphicsPathItem(path);
-        item->setPen(QPen(Qt::blue, 1));
+        item->setPen(QPen(color, 1));
         return item;
     }
     case wkbPolygon: {
@@ -200,7 +200,7 @@ QGraphicsItem* MapWidget::createGraphicsItem(OGRGeometry* geom, const OGREnvelop
         }
         auto* item = new QGraphicsPolygonItem(qpoly);
         item->setBrush(QColor(0, 255, 0, 50));
-        item->setPen(QPen(Qt::darkGreen, 1));
+        item->setPen(QPen(color, 1));
         return item;
     }
     default:
@@ -218,13 +218,13 @@ QPointF MapWidget::mapToView(double x, double y, const OGREnvelope& env) {
 }
 
 
-void MapWidget::updateFilePathList(const QMap<QString, bool>& fileList) {
+void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
     filePathList = fileList; // 更新文件路径和状态的映射
     scene->clear();
     // 遍历 QMap，检查所有路径的状态
     for (auto it = filePathList.begin(); it != filePathList.end(); ++it) {
         const QString& filePath = it.key();
-        bool status = it.value();
+        bool status = it.value().isVisible;
 
         // 判断文件类型
         QFileInfo fileInfo(filePath);
@@ -284,7 +284,7 @@ void MapWidget::updateFilePathList(const QMap<QString, bool>& fileList) {
                     OGRGeometry* poGeometry = poFeature->GetGeometryRef();
                     if (!poGeometry) continue;
 
-                    QGraphicsItem* item = createGraphicsItem(poGeometry, envTotal);
+                    QGraphicsItem* item = createGraphicsItem(poGeometry, envTotal, it.value().color);
                     if (item) scene->addItem(item);
 
                     OGRFeature::DestroyFeature(poFeature);
