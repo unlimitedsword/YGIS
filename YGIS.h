@@ -5,10 +5,10 @@
 #include <QAction>
 #include <QList>
 #include <QMenuBar>
-
 #include "MapWidget.h"
 #include "FileWidget.h"
 #include "TextWidget.h"
+#include "RasterInfoWidget.h"
 
 class YGIS : public QMainWindow
 {
@@ -22,10 +22,10 @@ public:
 
 
 private:
-    QAction* openFile;
-    QAction* refresh;
+    QAction* m_openFileAction;
+    QAction* m_refreshAction;
 
-    MapWidget* mapWidget;
-    FileWidget* fileWidget;
-    TextWidget* textWidget;
+    MapWidget* m_mapWidget;
+    FileWidget* m_fileWidget;
+    TextWidget* m_textWidget;
 };

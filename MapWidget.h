@@ -21,7 +21,7 @@ public:
 
 public slots:
 
-	void updateFilePathList(const QMap<QString, Information>& fileList);
+	void updateFilePathList(const QMap<QString, T_Information>& fileList);
 
 	void updateZoomLabel(qreal scale); // 更新缩放比例标签
 
@@ -33,10 +33,10 @@ private:
 	QGraphicsItem* createGraphicsItem(OGRGeometry* geom, const OGREnvelope& env,QColor color);
 	QPointF mapToView(double x, double y, const OGREnvelope& env);
 
-	MapCanvas* mapCanvas;
-	QGraphicsScene* scene;       // 图形场景对象
-	QLabel* zoomLabel; // 用于显示缩放比例的标签
+	MapCanvas* m_mapCanvas;
+	QGraphicsScene* m_scene;       // 图形场景对象
+	QLabel* m_zoomLabel; // 用于显示缩放比例的标签
 	OGREnvelope envTotal;
-	QMap<QString, Information> filePathList; // 文件路径对应状态
+	QMap<QString, T_Information> m_filePathList; // 文件路径对应状态
 
 };

@@ -100,10 +100,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="FileWidget.cpp" />
+    <ClCompile Include="RasterInfoWidget.cpp" />
     <ClCompile Include="TextWidget.cpp" />
     <QtRcc Include="YGIS.qrc" />
     <QtMoc Include="YGIS.h" />
     <ClCompile Include="MapWidget.cpp" />
+    <ClCompile Include="VectorElement.cpp" />
     <ClCompile Include="YGIS.cpp">
       <DynamicSource Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">input</DynamicSource>
       <QtMocFileName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">%(Filename).moc</QtMocFileName>
@@ -125,6 +127,8 @@
     <QtMoc Include="MapCanvas.h" />
   </ItemGroup>
   <ItemGroup>
+    <QtMoc Include="VectorElement.h" />
+    <QtMoc Include="RasterInfoWidget.h" />
     <ClInclude Include="Public.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

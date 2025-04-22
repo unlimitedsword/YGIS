@@ -46,6 +46,12 @@
     <ClCompile Include="YGIS.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="RasterInfoWidget.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="VectorElement.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <QtMoc Include="MapWidget.h">
@@ -58,6 +64,12 @@
       <Filter>Header Files</Filter>
     </QtMoc>
     <QtMoc Include="MapCanvas.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="RasterInfoWidget.h">
+      <Filter>Header Files</Filter>
+    </QtMoc>
+    <QtMoc Include="VectorElement.h">
       <Filter>Header Files</Filter>
     </QtMoc>
   </ItemGroup>

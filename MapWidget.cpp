@@ -10,23 +10,23 @@
 MapWidget::MapWidget()
 {
     // 初始化 QGraphicsView 和 QGraphicsScene
-    mapCanvas = new MapCanvas(this);
-    scene = new QGraphicsScene(this);
-    mapCanvas->setScene(scene);
-    mapCanvas->setRenderHint(QPainter::Antialiasing);
+    m_mapCanvas = new MapCanvas(this);
+    m_scene = new QGraphicsScene(this);
+    m_mapCanvas->setScene(m_scene);
+    m_mapCanvas->setRenderHint(QPainter::Antialiasing);
 
     // 初始化 QLabel
-    zoomLabel = new QLabel("缩放比例: 100%", this);
-    zoomLabel->setStyleSheet("background-color: rgba(255, 255, 255, 200);"
+    m_zoomLabel = new QLabel("缩放比例: 100%", this);
+    m_zoomLabel->setStyleSheet("background-color: rgba(255, 255, 255, 200);"
         "border: 1px solid black;"
         "padding: 2px;");
-    zoomLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_zoomLabel->setAlignment(Qt::AlignLeft | Qt::AlignTop);
 
 
     // 创建布局并将 mapCanvas 添加到布局中
     QVBoxLayout* layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0); // 去除边距
-    layout->addWidget(mapCanvas);
+    layout->addWidget(m_mapCanvas);
 
     // 设置滚轮缩放的锚点为视图中心
     setTransformationAnchor(QGraphicsView::AnchorUnderMouse);
@@ -34,7 +34,7 @@ MapWidget::MapWidget()
     // 设置布局到 MapWidget
     setLayout(layout);
 
-    if (!scene || !mapCanvas) {
+    if (!m_scene || !m_mapCanvas) {
         qDebug() << "场景或画布初始化失败";
     }
     else {
@@ -42,7 +42,7 @@ MapWidget::MapWidget()
     }
     //---------------------------------------------以下为信号槽连接------------------------------------------------//
 
-    connect(mapCanvas, &MapCanvas::zoomChanged, this, &MapWidget::updateZoomLabel);
+    connect(m_mapCanvas, &MapCanvas::zoomChanged, this, &MapWidget::updateZoomLabel);
 
 }
 
@@ -69,9 +69,9 @@ QImage MapWidget::loadRaster(const QString& filePath)
     bool processedAsRGB = false;
 
 
-    if (!scene) {
-        scene = new QGraphicsScene(this);
-        mapCanvas->setScene(scene);
+    if (!m_scene) {
+        m_scene = new QGraphicsScene(this);
+        m_mapCanvas->setScene(m_scene);
     }
     //显示前清除旧内容
     //scene->clear();
@@ -212,17 +212,17 @@ QPointF MapWidget::mapToView(double x, double y, const OGREnvelope& env) {
     double xRatio = (x - env.MinX) / (env.MaxX - env.MinX);
     double yRatio = 1.0 - (y - env.MinY) / (env.MaxY - env.MinY); // Y轴翻转
     return QPointF(
-        xRatio * mapCanvas->viewport()->width(),
-        yRatio * mapCanvas->viewport()->height()
+        xRatio * m_mapCanvas->viewport()->width(),
+        yRatio * m_mapCanvas->viewport()->height()
     );
 }
 
 
-void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
-    filePathList = fileList; // 更新文件路径和状态的映射
-    scene->clear();
+void MapWidget::updateFilePathList(const QMap<QString, T_Information>& fileList) {
+    m_filePathList = fileList; // 更新文件路径和状态的映射
+    m_scene->clear();
     // 遍历 QMap，检查所有路径的状态
-    for (auto it = filePathList.begin(); it != filePathList.end(); ++it) {
+    for (auto it = m_filePathList.begin(); it != m_filePathList.end(); ++it) {
         const QString& filePath = it.key();
         bool status = it.value().isVisible;
 
@@ -241,7 +241,7 @@ void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
                     qDebug() << "从图像生成 Pixmap 失败：" << filePath;
                 }
                 else {
-                    QGraphicsPixmapItem* pixmapItem = scene->addPixmap(pixmap);
+                    QGraphicsPixmapItem* pixmapItem = m_scene->addPixmap(pixmap);
                     if (!pixmapItem) {
                         qDebug() << "图像未成功添加到场景：" << filePath;
                     }
@@ -251,9 +251,9 @@ void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
                     }
                 }
 
-                QGraphicsPixmapItem* pixmapItem = scene->addPixmap(pixmap);
+                QGraphicsPixmapItem* pixmapItem = m_scene->addPixmap(pixmap);
                 pixmapItem->setData(0, filePath); // 将文件路径存储为图像项的用户数据
-                mapCanvas->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+                m_mapCanvas->fitInView(m_scene->itemsBoundingRect(), Qt::KeepAspectRatio);
             }
             else {
                 // 如果状态为 false
@@ -285,13 +285,13 @@ void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
                     if (!poGeometry) continue;
 
                     QGraphicsItem* item = createGraphicsItem(poGeometry, envTotal, it.value().color);
-                    if (item) scene->addItem(item);
+                    if (item) m_scene->addItem(item);
 
                     OGRFeature::DestroyFeature(poFeature);
                 }
 
                 GDALClose(poDS);
-                mapCanvas->fitInView(scene->itemsBoundingRect(), Qt::KeepAspectRatio);  // 自动缩放
+                m_mapCanvas->fitInView(m_scene->itemsBoundingRect(), Qt::KeepAspectRatio);  // 自动缩放
             }
             else {
                 // 如果状态为 false
@@ -303,5 +303,5 @@ void MapWidget::updateFilePathList(const QMap<QString, Information>& fileList) {
 
 void MapWidget::updateZoomLabel(qreal scale) {
     int percentage = static_cast<int>(scale * 100);
-    zoomLabel->setText(QString("缩放比例: %1%").arg(percentage));
+    m_zoomLabel->setText(QString("缩放比例: %1%").arg(percentage));
 }

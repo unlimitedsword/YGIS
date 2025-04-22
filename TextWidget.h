@@ -12,6 +12,6 @@ public slots:
     void dataPathReceived(QString datapath);
 
 private:
-    QTextEdit* textEdit;
-    QWidget* container; // 新增容器控件
+    QTextEdit* m_textEdit;
+    QWidget* m_container; // 新增容器控件
 };

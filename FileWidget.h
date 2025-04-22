@@ -4,6 +4,8 @@
 #include <QTreeView>
 #include <QStandardItemModel>
 #include "Public.h"
+#include "RasterInfoWidget.h"
+#include "VectorElement.h"
 
 class FileWidget : public QDockWidget 
 {
@@ -16,19 +18,24 @@ public:
 public slots:
     void appendFile();
 
+    void openInfoWidget(QString filePath);
+
+
 signals:
     void filePathDelivered(const QString& filePath); // 中间函数发送信号
 
-    void fileListUpdated(const QMap<QString, Information>& fileList);
+    void fileListUpdated(const QMap<QString, T_Information>& fileList);
 
 
 
 
 private:
-    QWidget* container; // 新增容器控件
-    QTreeView* treeview;
-    QStandardItemModel* model;
-    QModelIndex contextMenuIndex; // 保存右键时的项索引
+    RasterInfoWidget* m_rasterInfoWidget;
+    VectorElement* m_vectorElement;
+    QWidget* m_container; // 新增容器控件
+    QTreeView* m_treeView;
+    QStandardItemModel* m_model;
+    QModelIndex m_contextMenuIndex; // 保存右键时的项索引
 
 private slots:
     // 新增右键菜单槽函数
