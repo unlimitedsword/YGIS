@@ -15,6 +15,8 @@ public:
 
     void updateFileListSignal();
 
+    void rasterResample(const QString& filePath);
+
 public slots:
     void appendFile();
 

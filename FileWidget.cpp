@@ -2,6 +2,9 @@
 #include <QVBoxLayout>
 #include <QFileDialog>
 #include <QMenu>
+#include <QMessageBox>
+#include <QPushButton>
+
 #include <gdal.h>
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
@@ -36,7 +39,7 @@ FileWidget::FileWidget(QWidget* parent)
 	m_treeView->setModel(m_model);
 
 	m_rasterInfoWidget = new RasterInfoWidget(this);
-	m_rasterInfoWidget->setFixedSize(400, 400);
+	m_rasterInfoWidget->setFixedSize(450, 300);
 	m_rasterInfoWidget->hide();
 
 
@@ -142,8 +145,13 @@ void FileWidget::onCustomContextMenuRequested(const QPoint& pos) {
 	QAction* visibilityAction = menu.addAction(
 		index.data(CustomRole::GraphicStatus).toBool() ? "隐藏文件" : "显示文件"
 	);
-	QAction* deleteAction = menu.addAction("删除文件");
-	QAction* showPropertiesAction = menu.addAction("属性");
+
+	if (index.data(CustomRole::FileTypeRole).toString() == "Raster") {
+		QAction* resampleAction = menu.addAction("重采样");
+		connect(resampleAction, &QAction::triggered, [=] {
+			rasterResample(index.data(CustomRole::FilePathRole).toString());
+			});
+	}
 
 	if (index.data(CustomRole::FileTypeRole).toString() == "Vector") {
 		QAction* elementAction = menu.addAction("要素");
@@ -152,7 +160,8 @@ void FileWidget::onCustomContextMenuRequested(const QPoint& pos) {
 			m_vectorElement->vectorElementInfo(index.data(CustomRole::FilePathRole).toString());
 			});
 	}
-
+	QAction* deleteAction = menu.addAction("删除文件");
+	QAction* showPropertiesAction = menu.addAction("属性");
 
 	// 连接菜单动作到槽函数
 	connect(deleteAction, &QAction::triggered, this, &FileWidget::deleteSelectedItem);
@@ -237,3 +246,37 @@ void FileWidget::openInfoWidget(QString filePath) {
 	m_rasterInfoWidget->show(); // 显示窗口
 	m_rasterInfoWidget->raise(); // 将窗口置于最前
 }
+
+
+void FileWidget::rasterResample(const QString& filePath) {
+	// 创建算法选择对话框
+	QMessageBox choiceDialog;
+	choiceDialog.setWindowTitle("选择重采样算法");
+	choiceDialog.setText("请选择要使用的重采样算法：");
+
+QPushButton* nearestButton = choiceDialog.addButton("最近邻", QMessageBox::ActionRole);
+QPushButton* bilinearButton = choiceDialog.addButton("双线性", QMessageBox::ActionRole);
+QPushButton* cubicButton = choiceDialog.addButton("立方卷积", QMessageBox::ActionRole);
+QPushButton* cancelButton = choiceDialog.addButton("取消", QMessageBox::RejectRole);
+
+	choiceDialog.exec();
+
+	QAbstractButton* clickedButton = choiceDialog.clickedButton();
+
+	if (clickedButton == nearestButton) {
+		qDebug() << "选择最近邻";
+		m_rasterInfoWidget->ResampleNearest(filePath);
+	}
+	else if (clickedButton == bilinearButton) {
+		qDebug() << "选择双线性";
+		m_rasterInfoWidget->ResampleBilinear(filePath);
+	}
+	else if (clickedButton == cubicButton) {
+		qDebug() << "选择立方卷积";
+		m_rasterInfoWidget->ResampleCubic(filePath);
+	}
+	else {
+		qDebug() << "用户取消选择";
+	}
+}
+
