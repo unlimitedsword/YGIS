@@ -10,15 +10,9 @@ class RasterInfoWidget : public QMainWindow {
 public:
     explicit RasterInfoWidget(QWidget* parent = nullptr);
 
-    bool ResampleRaster(const QString& inputPath,
-        const QString& outputPath,
-        GDALResampleAlg resampleAlg,
-        double scaleFactor = 1.0);
-
     template<GDALResampleAlg Alg>
     void ResampleWithDialog(const QString& inputPath, double scaleFactor);
 
-    // 包装接口（推荐方式）
     void ResampleNearest(const QString& path) {
         ResampleWithDialog<GRA_NearestNeighbour>(path, 2.0);
     }
@@ -30,6 +24,16 @@ public:
     void ResampleCubic(const QString& path) {
         ResampleWithDialog<GRA_Cubic>(path, 1.5);
     }
+
+    bool ResampleRaster(const QString& inputPath,
+        const QString& outputPath,
+        GDALResampleAlg resampleAlg,
+        double scaleFactor = 1.0);
+
+
+signals:
+    void resampleCompleted(const QString& outputPath);
+
 
 public slots:
     void showRasterInfo(QString filePath);

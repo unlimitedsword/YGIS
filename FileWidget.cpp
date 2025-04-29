@@ -1,10 +1,9 @@
-
 #include <QVBoxLayout>
 #include <QFileDialog>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
-
+#include <QInputDialog>
 #include <gdal.h>
 #include <gdal_priv.h>
 #include <ogrsf_frmts.h>
@@ -57,6 +56,8 @@ FileWidget::FileWidget(QWidget* parent)
 
     connect(this, &FileWidget::filePathDelivered, m_rasterInfoWidget,&RasterInfoWidget::showRasterInfo);
 	this->setWidget(m_container);
+
+	connect(m_rasterInfoWidget, &RasterInfoWidget::resampleCompleted, this, &FileWidget::addResampledFile);
 }
 
 void FileWidget::appendFile() {
@@ -159,6 +160,10 @@ void FileWidget::onCustomContextMenuRequested(const QPoint& pos) {
 			m_vectorElement->show();
 			m_vectorElement->vectorElementInfo(index.data(CustomRole::FilePathRole).toString());
 			});
+		QAction* bufferAction = menu.addAction("缓冲区");
+		connect(bufferAction, &QAction::triggered, [=] {
+			vectorBuffer(index.data(CustomRole::FilePathRole).toString());
+			});
 	}
 	QAction* deleteAction = menu.addAction("删除文件");
 	QAction* showPropertiesAction = menu.addAction("属性");
@@ -254,10 +259,10 @@ void FileWidget::rasterResample(const QString& filePath) {
 	choiceDialog.setWindowTitle("选择重采样算法");
 	choiceDialog.setText("请选择要使用的重采样算法：");
 
-QPushButton* nearestButton = choiceDialog.addButton("最近邻", QMessageBox::ActionRole);
-QPushButton* bilinearButton = choiceDialog.addButton("双线性", QMessageBox::ActionRole);
-QPushButton* cubicButton = choiceDialog.addButton("立方卷积", QMessageBox::ActionRole);
-QPushButton* cancelButton = choiceDialog.addButton("取消", QMessageBox::RejectRole);
+	QPushButton* nearestButton = choiceDialog.addButton("最近邻", QMessageBox::ActionRole);
+	QPushButton* bilinearButton = choiceDialog.addButton("双线性", QMessageBox::ActionRole);
+	QPushButton* cubicButton = choiceDialog.addButton("立方卷积", QMessageBox::ActionRole);
+	QPushButton* cancelButton = choiceDialog.addButton("取消", QMessageBox::RejectRole);
 
 	choiceDialog.exec();
 
@@ -278,5 +283,103 @@ QPushButton* cancelButton = choiceDialog.addButton("取消", QMessageBox::Reject
 	else {
 		qDebug() << "用户取消选择";
 	}
+}
+
+void FileWidget::addResampledFile(const QString& outputPath) {
+	QString baseName = QFileInfo(outputPath).fileName(); // 获取文件名
+
+	QStandardItem* fileItem = new QStandardItem(baseName);
+	fileItem->setData(baseName, CustomRole::FileBaseName);
+	fileItem->setData(outputPath, CustomRole::FilePathRole);
+	fileItem->setData(true, CustomRole::GraphicStatus);
+	fileItem->setFlags(fileItem->flags() | Qt::ItemIsUserCheckable); // 启用复选框
+	fileItem->setCheckState(Qt::Checked); // 设置初始状态
+
+	if (outputPath.endsWith(".tif", Qt::CaseInsensitive) || outputPath.endsWith(".tiff", Qt::CaseInsensitive)) {
+		fileItem->setData("Raster", CustomRole::FileTypeRole);
+	}
+	else {
+		fileItem->setData("Unknown", CustomRole::FileTypeRole);
+	}
+
+	m_model->appendRow(fileItem);
+
+	// 更新文件列表信号
+	updateFileListSignal();
+}
+
+void FileWidget::vectorBuffer(const QString& filePath) {  
+   // 创建算法选择对话框  
+   QMessageBox choiceDialog;  
+   choiceDialog.setWindowTitle("缓冲区生成");  
+   choiceDialog.setText("请选择缓冲区半径：");  
+
+   bool ok;  
+   double radius = QInputDialog::getDouble(this, "缓冲区生成", "请输入缓冲区半径（km）：", 1.0, 0.1, 1000.0, 2, &ok);  
+
+   if (ok) {  
+	   emit bufferPathDeliverer(filePath, radius);
+       qDebug() << "用户选择的缓冲区半径为:" << radius;  
+   } else {  
+       qDebug() << "用户取消选择";  
+   }  
+}
+
+void FileWidget::addBufferFile(const QString& outputPath) {
+	// 获取文件名
+	QString baseName = QFileInfo(outputPath).fileName();
+
+	// 创建文件项
+	QStandardItem* fileItem = new QStandardItem(baseName);
+	fileItem->setData(baseName, CustomRole::FileBaseName);
+	fileItem->setData(outputPath, CustomRole::FilePathRole);
+	fileItem->setData(true, CustomRole::GraphicStatus); // 默认显示
+	fileItem->setFlags(fileItem->flags() | Qt::ItemIsUserCheckable); // 启用复选框
+	fileItem->setCheckState(Qt::Checked); // 设置初始状态
+
+	// 判断文件类型
+	if (outputPath.endsWith(".shp", Qt::CaseInsensitive)) {
+		fileItem->setData("Vector", CustomRole::FileTypeRole);
+
+		// 打开矢量文件以确定几何类型
+		GDALDataset* poDS = (GDALDataset*)GDALOpenEx(
+			outputPath.toUtf8(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr);
+		if (poDS) {
+			OGRLayer* poLayer = poDS->GetLayer(0);
+			if (poLayer) {
+				OGRFeature* poFeature = poLayer->GetNextFeature();
+				if (poFeature) {
+					OGRGeometry* poGeometry = poFeature->GetGeometryRef();
+					if (poGeometry) {
+						switch (wkbFlatten(poGeometry->getGeometryType())) {
+						case wkbPoint:
+							fileItem->setData("red", CustomRole::Color);
+							break;
+						case wkbLineString:
+							fileItem->setData("blue", CustomRole::Color);
+							break;
+						case wkbPolygon:
+							fileItem->setData("green", CustomRole::Color);
+							break;
+						default:
+							fileItem->setData("gray", CustomRole::Color);
+							break;
+						}
+					}
+					OGRFeature::DestroyFeature(poFeature);
+				}
+			}
+			GDALClose(poDS);
+		}
+	}
+	else {
+		fileItem->setData("Unknown", CustomRole::FileTypeRole);
+	}
+
+	// 将文件项添加到模型中
+	m_model->appendRow(fileItem);
+
+	// 更新文件列表信号
+	updateFileListSignal();
 }
 

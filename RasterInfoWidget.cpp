@@ -4,6 +4,10 @@
 #include <QStandardItemModel>  
 #include <QStringListModel>  
 #include <QHeaderView>
+#include <QElapsedTimer>    
+#include <QtConcurrent>
+#include <QFuture>
+#include <QFutureWatcher>
 #include <gdal.h>
 #include <gdal_priv.h>
 #include <gdal_utils.h>
@@ -16,8 +20,6 @@
 
 RasterInfoWidget::RasterInfoWidget(QWidget* parent)  
  : QMainWindow(parent), m_tableView(nullptr) {  // 初始化 m_tableView 为 nullptr
-     // 设置中心窗口  
-
 
      m_tableView = new QTableView(this);  
      QStandardItemModel* model = new QStandardItemModel(7, 2, this); // 设置模型，7 行 2 列  
@@ -63,6 +65,21 @@ void RasterInfoWidget::showRasterInfo(QString filePath) {
   // 获取波段总数
   int bandCount = poDataset->GetRasterCount();
 
+  // 计算均值和方差
+  QString meanValues = "(N/A)";
+  QString stddevValues = "(N/A)";
+  if (bandCount >= 3) { // 确保至少有 3 个波段
+      double mean[3] = { 0 }, stddev[3] = { 0 };
+      for (int i = 0; i < 3; ++i) {
+          GDALRasterBand* band = poDataset->GetRasterBand(i + 1);
+          if (band) {
+              band->GetStatistics(false, true, nullptr, nullptr, &mean[i], &stddev[i]);
+          }
+      }
+      meanValues = QString("(%1, %2, %3)").arg(mean[0]).arg(mean[1]).arg(mean[2]);
+      stddevValues = QString("(%1, %2, %3)").arg(stddev[0]).arg(stddev[1]).arg(stddev[2]);
+  }
+
   // 关闭数据集以释放资源  
   GDALClose(poDataset);  
 
@@ -74,6 +91,8 @@ void RasterInfoWidget::showRasterInfo(QString filePath) {
       model->setItem(2, 1, new QStandardItem(QString("%1 x %2").arg(xResolution).arg(yResolution))); // 分辨率
       model->setItem(3, 1, new QStandardItem(pszProj)); // 投影
       model->setItem(4, 1, new QStandardItem(QString::number(bandCount))); // 波段数
+      model->setItem(5, 1, new QStandardItem(meanValues)); // 均值 (R, G, B)
+      model->setItem(6, 1, new QStandardItem(stddevValues)); // 方差 (R, G, B)
   }
   m_tableView->setColumnWidth(0, 50);
   m_tableView->setColumnWidth(1, 550);
@@ -87,6 +106,10 @@ bool RasterInfoWidget::ResampleRaster(const QString& inputPath,
 {
     qDebug() << "\n====== 开始重采样操作 ======";
     qDebug() << "GDAL版本:" << GDALVersionInfo("RELEASE_NAME");
+
+    // 创建计时器
+    QElapsedTimer timer;
+    timer.start(); // 开始计时
 
     GDALAllRegister();
 
@@ -171,7 +194,7 @@ bool RasterInfoWidget::ResampleRaster(const QString& inputPath,
     warpOptions->nBandCount = srcDS->GetRasterCount();
     warpOptions->eResampleAlg = resampleAlg;
 
-    // 波段映射（GDAL 2.0需要显式设置）
+    // 波段映射
     warpOptions->panSrcBands = (int*)CPLMalloc(sizeof(int) * warpOptions->nBandCount);
     warpOptions->panDstBands = (int*)CPLMalloc(sizeof(int) * warpOptions->nBandCount);
     for (int i = 0; i < warpOptions->nBandCount; i++) {
@@ -179,7 +202,7 @@ bool RasterInfoWidget::ResampleRaster(const QString& inputPath,
         warpOptions->panDstBands[i] = i + 1;
     }
 
-    // 坐标转换器（GDAL 2.0必需）
+    // 坐标转换器
     warpOptions->pTransformerArg = GDALCreateGenImgProjTransformer(
         srcDS,
         srcDS->GetProjectionRef(),
@@ -239,6 +262,14 @@ bool RasterInfoWidget::ResampleRaster(const QString& inputPath,
         return false;
     }
 
+    // 停止计时并输出耗时
+    qint64 elapsedTime = timer.elapsed();
+    qDebug() << "重采样操作耗时:" << elapsedTime << "毫秒";
+
+
+    // 发射信号，通知重采样完成
+    emit resampleCompleted(outputPath);
+
     qDebug() << "====== 操作成功完成 ======\n";
     return true;
 }
@@ -257,6 +288,10 @@ void RasterInfoWidget::ResampleWithDialog(const QString& inputPath, double scale
     saveDialog.setAcceptMode(QFileDialog::AcceptSave);
     saveDialog.setNameFilter("GeoTIFF (*.tif)");
     saveDialog.setDefaultSuffix("tif");
+
+    // 设置默认文件名
+    QString defaultFileName = QFileInfo(inputPath).completeBaseName() + "_resampled_output.tif";
+    saveDialog.selectFile(defaultFileName);
 
     if (saveDialog.exec() != QDialog::Accepted) {
         qDebug() << "用户取消了保存对话框";

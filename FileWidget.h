@@ -15,15 +15,22 @@ public:
 
     void updateFileListSignal();
 
-    void rasterResample(const QString& filePath);
+    void rasterResample(const QString& filePath);  //栅格重采样
+
+    void vectorBuffer(const QString& filePath);
 
 public slots:
     void appendFile();
 
     void openInfoWidget(QString filePath);
 
+    void addResampledFile(const QString& outputPath);
+
+    void addBufferFile(const QString& outputPath);
 
 signals:
+    void bufferPathDeliverer(const QString& filePath,double radius);
+
     void filePathDelivered(const QString& filePath); // 中间函数发送信号
 
     void fileListUpdated(const QMap<QString, T_Information>& fileList);

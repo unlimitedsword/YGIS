@@ -39,6 +39,8 @@ YGIS::YGIS(QWidget* parent) : QMainWindow(parent) {
     connect(m_openFileAction, &QAction::triggered, m_fileWidget, &FileWidget::appendFile);  //打开并添加文件
     connect(m_fileWidget, &FileWidget::filePathDelivered, m_textWidget, &TextWidget::dataPathReceived);  //传输路径给编辑框  
     connect(m_fileWidget, &FileWidget::fileListUpdated, m_mapWidget, &MapWidget::updateFilePathList); //同步文件列表与mapCanvas文件列表
+    connect(m_fileWidget, &FileWidget::bufferPathDeliverer, m_mapWidget, &MapWidget::bufferVector);  //传输生成缓冲区的矢量路径
+    connect(m_mapWidget, &MapWidget::bufferCompleted, m_fileWidget, &FileWidget::addBufferFile);
 }
 
 YGIS::~YGIS()

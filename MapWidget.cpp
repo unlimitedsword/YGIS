@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QFileInfo>
 #include <QVBoxLayout>
+#include <QFileDialog>
 #include "MapWidget.h"
 
 MapWidget::MapWidget()
@@ -299,9 +300,141 @@ void MapWidget::updateFilePathList(const QMap<QString, T_Information>& fileList)
             }
         }
     }
+    // 重置缩放因子为 100%
+    m_mapCanvas->fitInView(m_scene->itemsBoundingRect(), Qt::KeepAspectRatio);
+    updateZoomLabel(1.0); // 更新缩放标签为 100%
 }
 
 void MapWidget::updateZoomLabel(qreal scale) {
     int percentage = static_cast<int>(scale * 100);
     m_zoomLabel->setText(QString("缩放比例: %1%").arg(percentage));
+}
+
+void MapWidget::bufferVector(const QString& inputPath, double radius) {
+    QFileInfo inputFile(inputPath);
+    if (!inputFile.exists()) {
+        QMessageBox::critical(this, "错误", QString("输入文件不存在：\n%1").arg(inputPath));
+        return;
+    }
+    QFileDialog saveDialog(this);
+    saveDialog.setWindowTitle("保存输出文件");
+    saveDialog.setAcceptMode(QFileDialog::AcceptSave);
+    saveDialog.setNameFilter("Shapefile (*.shp)");
+    saveDialog.setDefaultSuffix("shp");
+
+    // 设置默认文件名
+    QString defaultFileName = "buffer_" + QFileInfo(inputPath).completeBaseName() + ".shp";
+    saveDialog.selectFile(defaultFileName);
+
+    if (saveDialog.exec() != QDialog::Accepted) {
+        qDebug() << "用户取消了保存对话框";
+        return;
+    }
+
+    const QString outputPath = saveDialog.selectedFiles().first();
+
+    if (createBuffer(inputPath, outputPath, radius*1000)) {
+        QMessageBox::information(this, "完成", "生成缓冲区成功");
+        emit bufferCompleted(outputPath);
+    }
+}
+
+
+// 生成缓冲区函数
+bool MapWidget::createBuffer(const QString& inputPath, const QString& outputPath, double bufferRadius) {
+    // 初始化GDAL
+    GDALAllRegister();
+
+    // 打开输入矢量文件
+    GDALDataset* poInputDS = (GDALDataset*)GDALOpenEx(inputPath.toUtf8().constData(), GDAL_OF_VECTOR, nullptr, nullptr, nullptr);
+    if (!poInputDS) {
+        QMessageBox::critical(nullptr, "Error", "无法打开输入文件！");
+        return false;
+    }
+
+    // 获取输入图层
+    OGRLayer* poInputLayer = poInputDS->GetLayer(0);
+    if (!poInputLayer) {
+        QMessageBox::critical(nullptr, "Error", "无法读取输入图层！");
+        GDALClose(poInputDS);
+        return false;
+    }
+
+    // 创建输出矢量文件（Shapefile格式）
+    const char* pszDriverName = "ESRI Shapefile";
+    GDALDriver* poDriver = GetGDALDriverManager()->GetDriverByName(pszDriverName);
+    if (!poDriver) {
+        QMessageBox::critical(nullptr, "Error", "驱动不可用！");
+        GDALClose(poInputDS);
+        return false;
+    }
+
+    GDALDataset* poOutputDS = poDriver->Create(outputPath.toUtf8().constData(), 0, 0, 0, GDT_Unknown, nullptr);
+    if (!poOutputDS) {
+        QMessageBox::critical(nullptr, "Error", "无法创建输出文件！");
+        GDALClose(poInputDS);
+        return false;
+    }
+
+    // 创建输出图层（面类型）
+    OGRSpatialReference* poSRS = poInputLayer->GetSpatialRef();
+    OGRLayer* poOutputLayer = poOutputDS->CreateLayer("buffer", poSRS, wkbPolygon, nullptr);
+    if (!poOutputLayer) {
+        QMessageBox::critical(nullptr, "Error", "无法创建输出图层！");
+        GDALClose(poInputDS);
+        GDALClose(poOutputDS);
+        return false;
+    }
+
+    // 复制输入字段到输出（可选）
+    OGRFeatureDefn* poInputDefn = poInputLayer->GetLayerDefn();
+    for (int iField = 0; iField < poInputDefn->GetFieldCount(); iField++) {
+        OGRFieldDefn* poFieldDefn = poInputDefn->GetFieldDefn(iField);
+        if (poOutputLayer->CreateField(poFieldDefn) != OGRERR_NONE) {
+            QMessageBox::warning(nullptr, "Warning", QString("无法创建字段 %1").arg(poFieldDefn->GetNameRef()));
+        }
+    }
+
+    // 遍历输入要素，生成缓冲区
+    poInputLayer->ResetReading();
+    OGRFeature* poFeature;
+    while ((poFeature = poInputLayer->GetNextFeature()) != nullptr) {
+        OGRGeometry* poGeometry = poFeature->GetGeometryRef();
+        if (!poGeometry) {
+            OGRFeature::DestroyFeature(poFeature);
+            continue;
+        }
+
+        // 生成缓冲区
+        OGRGeometry* poBuffer = poGeometry->Buffer(bufferRadius);
+        if (!poBuffer) {
+            OGRFeature::DestroyFeature(poFeature);
+            continue;
+        }
+
+        // 创建输出要素
+        OGRFeature* poOutputFeature = OGRFeature::CreateFeature(poOutputLayer->GetLayerDefn());
+        poOutputFeature->SetGeometry(poBuffer);
+
+        // 复制字段属性
+        for (int iField = 0; iField < poInputDefn->GetFieldCount(); iField++) {
+            poOutputFeature->SetField(iField, poFeature->GetRawFieldRef(iField));
+        }
+
+        // 写入输出图层
+        if (poOutputLayer->CreateFeature(poOutputFeature) != OGRERR_NONE) {
+            QMessageBox::warning(nullptr, "Warning", "无法写入要素！");
+        }
+
+        // 清理资源
+        OGRFeature::DestroyFeature(poFeature);
+        OGRFeature::DestroyFeature(poOutputFeature);
+        delete poBuffer;
+    }
+
+    // 关闭数据集
+    GDALClose(poInputDS);
+    GDALClose(poOutputDS);
+
+    return true;
 }

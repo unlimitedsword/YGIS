@@ -71,19 +71,34 @@ void TextWidget::dataPathReceived(QString datapath) {
         GDALDataset* vectorDataset = (GDALDataset*)GDALOpenEx(c_vectorData, GDAL_OF_VECTOR, nullptr, nullptr, nullptr);
         if (!vectorDataset) {
             qDebug() << "GDAL 打开失败，文件路径：" << datapath;
+            return;
         }
+
         int layerCount = vectorDataset->GetLayerCount();
         QString layerNum = QString::number(layerCount);
 
-        m_textEdit->append("图层数" + layerNum);
+        m_textEdit->append("图层数: " + layerNum);
 
-        //读取图层名
-        //for (int i = 0; i < layerCount; i++) {
-        //    OGRLayer* layer = vectorDataset->GetLayer(i);
-        //    if (layer) {
-        //        textEdit->append(QString::fromUtf8(layer->GetName()));
-        //    }
-        //}
+        // 获取投影信息
+        OGRLayer* layer = vectorDataset->GetLayer(0); // 获取第一个图层
+        if (layer) {
+            OGRSpatialReference* spatialRef = layer->GetSpatialRef();
+            if (spatialRef) {
+                char* projWkt = nullptr;
+                spatialRef->exportToWkt(&projWkt); // 导出为WKT格式
+                m_textEdit->append("投影信息 (WKT):");
+                m_textEdit->append(QString::fromUtf8(projWkt));
+                CPLFree(projWkt); // 释放内存
+            }
+            else {
+                m_textEdit->append("投影信息: 无");
+            }
+        }
+        else {
+            m_textEdit->append("无法获取图层信息");
+        }
+
+        GDALClose(vectorDataset); // 关闭数据集
     }
     else {
         m_textEdit->setText("文件类型: 未知文件类型\n文件路径: " + datapath);

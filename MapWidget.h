@@ -19,13 +19,18 @@ class MapWidget:public QGraphicsView {
 public:
 	MapWidget();
 
+	void bufferVector(const QString& inputPath,double radius);
+
+	bool createBuffer(const QString& inputPath, const QString& outputPath, double bufferRadius);
+
 public slots:
 
 	void updateFilePathList(const QMap<QString, T_Information>& fileList);
 
 	void updateZoomLabel(qreal scale); // 更新缩放比例标签
 
-
+signals:
+	void bufferCompleted(const QString& filePath);
 
 private:
 	QImage loadRaster(const QString& filePath);
